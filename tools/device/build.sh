@@ -23,7 +23,8 @@ cmp ui/src/device/defaults.json device-build/generated/defaults.json
 cargo metadata --locked --format-version 1 --manifest-path ui/Cargo.toml > device-build/cargo-metadata.json
 sdl_source=$(python3 -c 'import json,pathlib; m=json.load(open("device-build/cargo-metadata.json")); print(next(str(pathlib.Path(p["manifest_path"]).parent/"SDL") for p in m["packages"] if p["name"]=="sdl2-sys"))')
 docker build -t gr1-rust-build:1.90.0 -f tools/device/Dockerfile tools/device
-docker run --rm -v "$PWD:/work" -v "$sdl_source:/sdl:ro" gr1-rust-build:1.90.0 sh tools/device/build-sdl.sh > device-build/sdl-build.log 2>&1
-docker run --rm -v "$PWD:/work" gr1-rust-build:1.90.0 sh tools/device/build-app.sh > device-build/app-build.log 2>&1
+# Keep build output writable by the host user that packages it.
+docker run --rm --user "$(id -u):$(id -g)" -e CARGO_HOME=/work/device-build/docker-cargo -v "$PWD:/work" -v "$sdl_source:/sdl:ro" gr1-rust-build:1.90.0 sh tools/device/build-sdl.sh > device-build/sdl-build.log 2>&1
+docker run --rm --user "$(id -u):$(id -g)" -e CARGO_HOME=/work/device-build/docker-cargo -v "$PWD:/work" gr1-rust-build:1.90.0 sh tools/device/build-app.sh > device-build/app-build.log 2>&1
 device-build/tools-venv/bin/python tools/device/check-elf.py | tee device-build/elf-check.txt
 device-build/tools-venv/bin/python tools/device/package.py --sdl-source "$sdl_source"
