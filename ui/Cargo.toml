@@ -1,0 +1,15 @@
+[package]
+name = "gr1-ui"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+
+[dependencies]
+sdl2 = { version = "0.38", features = ["use-pkgconfig"] }
+fontdue = "0.9"
+png = "0.17"
+libloading = "0.8"
+libc = "0.2"
+serde_json = "1"
+sha2 = "0.10"

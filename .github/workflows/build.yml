@@ -1,0 +1,78 @@
+name: Build GR-1 UI download
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate source tree
+        id: source
+        run: |
+          if test -f public/tools/device/build.sh; then
+            echo 'directory=public' >> "$GITHUB_OUTPUT"
+          else
+            echo 'directory=.' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check USB archive and startup routing
+        working-directory: ${{ steps.source.outputs.directory }}
+        run: python3 tools/test-usb-update.py
+      - name: Prepare pinned host Rust
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt
+      - name: Build private inputs and statically check ARM output
+        working-directory: ${{ steps.source.outputs.directory }}
+        env:
+          RUSTUP_TOOLCHAIN: 1.90.0
+        run: ./tools/device/build.sh
+      - name: Create UI-only download
+        working-directory: ${{ steps.source.outputs.directory }}
+        run: |
+          python3 tools/ci-bundle.py --revision "$GITHUB_SHA" \
+            --output "$GITHUB_WORKSPACE/gr1-ui-download.tar.gz"
+      - name: Upload only redistributable download
+        uses: actions/upload-artifact@v4
+        with:
+          name: gr1-ui-armhf-download
+          path: gr1-ui-download.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - name: Build browser USB preparation website
+        working-directory: ${{ steps.source.outputs.directory }}
+        run: |
+          python3 tools/build-website.py --bundle "$GITHUB_WORKSPACE/gr1-ui-download.tar.gz" \
+            --output "$GITHUB_WORKSPACE/gr1-website"
+      - name: Upload owner website without vendor firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: gr1-website
+          path: gr1-website/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload GitHub Pages website
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: gr1-website/
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - name: Deploy owner website
+        id: deployment
+        uses: actions/deploy-pages@v4

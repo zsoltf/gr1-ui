@@ -1,0 +1,2 @@
+Keep this file in the root of a USB stick to start the original GR-1 interface.
+Remove it to start the redesigned interface again.

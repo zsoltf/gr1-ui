@@ -1,0 +1,5 @@
+xdis==6.3.0
+pycryptodome==3.24.0
+pyelftools==0.33
+click==8.5.0
+six==1.17.0

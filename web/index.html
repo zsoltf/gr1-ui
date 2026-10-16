@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Install the new GR-1 interface</title>
+<style>
+:root{color-scheme:dark;--background:#101820;--surface:#182630;--line:#334752;--text:#eef3f6;--muted:#b8c9d3;--accent:#8bd4ff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--background);color:var(--text);font:17px/1.6 system-ui,sans-serif}main{max-width:1040px;margin:auto;padding:3.5rem 2rem 2rem}h1,h2,h3{line-height:1.2;margin:0 0 1rem}h1{font-size:clamp(2.2rem,5vw,3.8rem);letter-spacing:-.035em;max-width:850px}h2{font-size:1.65rem}h3{font-size:1.15rem}p{margin:.5rem 0 1rem}a{color:var(--accent);text-underline-offset:.2em}a:hover{color:white}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:4px}code{font-size:.85em;overflow-wrap:anywhere}.eyebrow{text-transform:uppercase;font-size:.8rem;letter-spacing:.14em;color:var(--accent);margin-bottom:1rem}.intro{font-size:1.2rem;color:var(--muted);max-width:730px}.features{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;list-style:none;padding:0;margin:1.8rem 0 2.5rem;color:var(--muted)}.features li::before{content:'+';color:var(--accent);margin-right:.5rem}.step{border-top:1px solid var(--line);padding:2.2rem 0}.step-heading{display:flex;align-items:center;gap:1rem;margin-bottom:1.4rem}.step-heading h2{margin:0}.number{display:grid;place-items:center;width:2.5rem;height:2.5rem;flex:none;border:1px solid var(--line);border-radius:50%;color:var(--accent);font-weight:700}.files{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.card{background:var(--surface);border:1px solid var(--line);border-radius:.6rem;padding:1.4rem;min-width:0}.card p{color:var(--muted)}.note{color:var(--muted);font-size:.9rem}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}label{display:block;font-weight:650;margin-bottom:.5rem}input[type=file]{display:block;width:100%;min-width:0;font:inherit;color:var(--muted);border:1px solid var(--line);padding:.6rem;border-radius:.4rem;background:var(--background)}input::file-selector-button{font:inherit;color:var(--text);background:var(--surface);border:0;border-radius:.25rem;padding:.5rem .7rem;margin-right:.6rem}.hint{font-size:.85rem;color:var(--muted);margin:.5rem 0 0}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem;margin:1.5rem 0 1rem}button,.download{font:inherit;font-weight:650;border-radius:.35rem;padding:.75rem 1.1rem;cursor:pointer;background:var(--accent);color:var(--background);border:1px solid var(--accent);text-decoration:none}.download{display:inline-block;margin-bottom:.8rem}button.secondary{background:transparent;color:var(--text);border-color:var(--line)}button:disabled{opacity:.6;cursor:wait}[hidden]{display:none!important}#status{white-space:pre-wrap;overflow-wrap:anywhere;margin:1rem 0;color:var(--muted)}.next{max-width:760px}.next ol{padding-left:1.3rem}.next li{padding:.25rem 0 .5rem}.compatibility{border-left:3px solid var(--line);padding-left:1rem;color:var(--muted)}.verification{border-top:1px solid var(--line);margin-top:1rem;padding-top:1.5rem;color:var(--muted);font-size:.8rem}.verification h2{font-size:1rem}.verification dl{margin:0}.verification dt{margin-top:.8rem}.verification dd{font-family:ui-monospace,monospace;overflow-wrap:anywhere;margin:0}footer{color:var(--muted);font-size:.85rem;margin-top:2rem}
+@media(max-width:680px){main{padding:2rem 1.1rem}.files,.form-grid{grid-template-columns:1fr}.step{padding:1.7rem 0}.card{padding:1.1rem}.intro{font-size:1.08rem}.features{gap:.4rem 1rem;margin-bottom:1.8rem}.step-heading{gap:.7rem}.step-heading h2{font-size:1.4rem}.actions{align-items:stretch}.actions button,.download{text-align:center}}
+.gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:0 0 2rem}.gallery figure{margin:0;min-width:0}.gallery a{display:block;border-radius:.35rem;overflow:hidden}.gallery img{display:block;width:100%;height:auto;aspect-ratio:1480/830}.gallery figcaption{margin-top:.4rem;font-size:.85rem;color:var(--muted)}
+@media(max-width:680px){.gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}}
+@media(max-width:420px){.gallery{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head><body><main>
+<header><h1>GR-1 UI</h1>
+<p class="intro">Redesigned UI for the Tasty Chips GR-1</p>
+<ul class="features"><li>Waveform and grains in view</li><li>Light and Dark appearance</li><li>Install with a USB stick</li></ul>
+<div class="gallery" aria-label="Interface photos">
+<figure><a href="images/main.jpg" aria-label="Open main view photo"><img src="images/main.jpg" width="960" height="538" alt="GR-1 main view" decoding="async"></a><figcaption>Main view</figcaption></figure>
+<figure><a href="images/sample-record.jpg" aria-label="Open sample recording photo"><img src="images/sample-record.jpg" width="960" height="538" alt="GR-1 sample recording" decoding="async"></a><figcaption>Sample recording</figcaption></figure>
+<figure><a href="images/patch-matrix.jpg" aria-label="Open modulation matrix photo"><img src="images/patch-matrix.jpg" width="960" height="538" alt="GR-1 modulation matrix" decoding="async"></a><figcaption>Modulation matrix</figcaption></figure>
+<figure><a href="images/patch-lfo.jpg" aria-label="Open lfo photo"><img src="images/patch-lfo.jpg" width="960" height="538" alt="GR-1 lfo" decoding="async"></a><figcaption>LFO</figcaption></figure>
+<figure><a href="images/performance-parts.jpg" aria-label="Open performance parts photo"><img src="images/performance-parts.jpg" width="960" height="538" alt="GR-1 performance parts" decoding="async"></a><figcaption>Performance parts</figcaption></figure>
+<figure><a href="images/single-part.jpg" aria-label="Open single-part view photo"><img src="images/single-part.jpg" width="960" height="538" alt="GR-1 single-part view" decoding="async"></a><figcaption>Single-part view</figcaption></figure>
+</div>
+<p class="compatibility">For GR-1 units with a Raspberry Pi 3 Model B Plus and official firmware 3.4.4.</p></header>
+<section class="step" aria-labelledby="firmware-heading"><div class="step-heading"><span class="number" aria-hidden="true">1</span><h2 id="firmware-heading">Start with official firmware 3.4.4</h2></div>
+<p>Back up your sounds. Update to official firmware 3.4.4 if needed, and keep the downloaded file.</p>
+<p><a href="https://www.tastychips.nl/downloads/GR-1/Firmware/gr1_firmware_3.4.4_24117ba.tgz">Download official firmware 3.4.4</a> &middot; <a href="https://www.tastychips.nl/downloads/GR-1/UserManual/User-manual-GR-1-v3.4.c.pdf#page=95">Official update instructions</a></p>
+</section>
+<section class="step" aria-labelledby="prepare-heading"><div class="step-heading"><span class="number" aria-hidden="true">2</span><h2 id="prepare-heading">Prepare your USB update</h2></div>
+<p>Choose the firmware file, then click <strong>Prepare USB update</strong>.</p>
+<form id="prepare"><label for="firmware">Official firmware file</label><input id="firmware" type="file" accept=".tgz,.gz" required aria-describedby="firmware-hint">
+<p id="firmware-hint" class="hint">Use the .tgz file without unpacking it.</p>
+<div class="actions"><button id="start" type="submit">Prepare USB update</button><button id="cancel" class="secondary" type="button" hidden>Cancel</button></div></form>
+<p id="status" role="status" aria-live="polite"></p>
+<a id="download" class="download" hidden>Download USB update</a>
+<p class="note">The finished file contains Tasty Chips firmware. Keep it for your own use.</p>
+</section>
+<section class="step next" aria-labelledby="install-heading"><div class="step-heading"><span class="number" aria-hidden="true">3</span><h2 id="install-heading">Copy, plug in, update</h2></div>
+<ol><li>Copy the prepared <strong>.tgz</strong> file to your USB stick, outside any folder. Keep only one firmware update file on the stick. Do not unpack it.</li>
+<li>Insert the stick into your GR-1 and restart it. Press <strong>Select</strong> when the update prompt appears.</li>
+<li>Let the update finish. Remove the stick and restart to use the new interface.</li></ol>
+<p>If no update prompt appears, unplug Ethernet and choose <strong>Shift + Perf &rarr; System &rarr; Firmware upgrade</strong>. You can reconnect Ethernet after the update.</p>
+<p class="note">Keep the GR-1 powered on while it updates.</p>
+</section>
+<section class="step next" aria-labelledby="restore-heading"><h2 id="restore-heading">Return to the original interface</h2>
+<p>Save this small file to a USB stick, outside any folder. Insert the stick and restart the GR-1 to open the original interface. Remove the file or stick to return to the new interface.</p>
+<p><a href="gr1-use-original.txt" download>Original interface startup file</a></p>
+</section>
+<section id="verification" class="verification" hidden><h2>Prepared file</h2><dl><dt>SHA256</dt><dd id="package-sha"></dd></dl></section>
+<footer>Your firmware file stays in your browser. Independent project, not an official Tasty Chips release. <a href="https://github.com/zsoltf/gr1-ui">Source and support</a>.</footer>
+</main><script src="app.js" defer></script></body></html>
