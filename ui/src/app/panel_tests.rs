@@ -42,6 +42,103 @@ impl Panel {
 }
 
 #[test]
+fn lfo_dest_feedback_survives_menus_and_rebases_on_recall() {
+    let mut p = Panel::new();
+    p.app.patch_mut().routes = [[0.; 11]; 9];
+    p.events(&[(13, 0)]);
+    for lfo in 0..2 {
+        // The view after a native poll: only the destination changed; Amount
+        // is still zero. This substitutes readback, not the hardware button.
+        p.app.patch_mut().lfo_destinations[lfo] = Some(6);
+        p.events(&[(16, 1)]);
+        assert_eq!(p.app.readout_target(), Some(LiveTarget::Route(lfo, 6)));
+        let last = p.app.touch.last;
+        p.events(&[(16, 1), (9, 0)]);
+        assert_eq!(
+            p.app.touch.last, last,
+            "streamed updates do not re-trigger DEST"
+        );
+        if let Some(captures) = std::env::var_os("GR1_UI_TEST_CAPTURE_DIR") {
+            p.painter
+                .png(
+                    &std::path::PathBuf::from(captures)
+                        .join(format!("lfo{}-dest-menu.png", lfo + 1)),
+                )
+                .unwrap();
+        }
+        let (target, at) = p.app.touch.last.unwrap();
+        p.app.touch.last = Some((target, at - Duration::from_secs(2)));
+        p.app.patch_mut().routes[lfo][6] = -0.4;
+        p.events(&[(16, 1)]);
+        assert_eq!(p.app.readout_target(), Some(LiveTarget::Route(lfo, 6)));
+        assert!(
+            p.app.touch.last.unwrap().1 > at,
+            "Amount renews the readout"
+        );
+        let last = p.app.touch.last;
+        p.events(&[(16, 1), (9, 0)]);
+        assert_eq!(p.app.touch.last, last, "steady Amount does not retrigger");
+    }
+    p.events(&[(14, 0), (14, 0)]);
+    assert_eq!(p.app.tab, 0);
+    assert_eq!(p.app.patch().lfo_destinations, [Some(6), Some(6)]);
+    // Recall of the same named preset must not be reported as a DEST press.
+    for event in [10, 27] {
+        p.app.patch_mut().lfo_destinations[0] = Some(event as usize % 11);
+        p.app.patch_mut().routes[1][6] += 0.1;
+        p.events(&[(event, 0), (16, 1)]);
+        assert!(p.app.readout_target().is_none());
+    }
+    p.app.parts[0] = 2;
+    p.events(&[]);
+    assert!(
+        p.app.readout_target().is_none(),
+        "a different preset re-bases too"
+    );
+}
+
+#[test]
+fn window_and_lfo_base_readback_show_the_moved_control() {
+    for menu in [false, true] {
+        let mut p = Panel::new();
+        if menu {
+            p.events(&[(13, 0)]);
+        }
+        for (id, value, event) in [
+            ("sides", 75., 9),
+            ("tilt", 25., 9),
+            ("curve", 65., 9),
+            ("lfo1_rate", 2.5, 11),
+            ("lfo2_rate", 3.5, 11),
+            ("lfo1_wave", 2., 11),
+            ("lfo2_wave", 3., 11),
+        ] {
+            let i = p.app.setting_index(id);
+            p.app.set(i, value);
+            p.events(&[(event, 0)]);
+            assert_eq!(p.app.readout_target(), Some(LiveTarget::Setting(i)), "{id}");
+            let last = p.app.touch.last;
+            p.events(&[(event, 0)]);
+            assert_eq!(p.app.touch.last, last, "steady {id} does not retrigger");
+            if let Some(captures) = std::env::var_os("GR1_UI_TEST_CAPTURE_DIR") {
+                p.painter
+                    .png(
+                        &std::path::PathBuf::from(captures)
+                            .join(format!("{id}-{}.png", if menu { "menu" } else { "main" })),
+                    )
+                    .unwrap();
+            }
+            p.app.set(i, value + 1.);
+            p.events(&[(10, 0)]);
+            assert!(p.app.readout_target().is_none(), "recall re-bases {id}");
+            if menu {
+                p.events(&[(13, 0)]);
+            }
+        }
+    }
+}
+
+#[test]
 fn first_encoder_report_after_restart_does_not_jump_the_menu() {
     // The device's retained MCU count was 65460 (-76), with inversion on.
     // A fresh native engine subtracts zero and emits +76 on the first turn.

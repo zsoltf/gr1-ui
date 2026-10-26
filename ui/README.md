@@ -15,6 +15,16 @@ Load and Save open the browser and Save sheet; confirmations begin on Cancel.
 Shift+Patch, Shift+Sample and Shift+Perf open their roots. The first physical
 encoder report establishes a reference after startup and does not move focus.
 
+Pressing either LFO's DEST button immediately shows its selected target, even
+at zero Amount. Amount edits that target; other nonzero destinations stay active.
+DEST, Amount, LFO Frequency and window Sides/Tilt/Curve show their values in
+the large amber readout for 1.5 seconds after the last change. LFO shape changes
+show the waveform name and a larger shape icon for the same time, also in menus.
+The selected destination remains visible below the LFO after the readout clears.
+
+DSP metering is a thin bar along the top edge of the bottom status area when
+System > DSP meter is On.
+
 For desktop panel preview, use `./ui/run.sh --panel-preview`. F1, F2 and F3
 open Patch, Sample and Perf, F4 returns to Main; arrow keys turn Select and
 Enter presses it. Escape returns. F5/F6 stand in for Load/Save. Hold Shift

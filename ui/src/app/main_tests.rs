@@ -32,6 +32,235 @@ fn count(p: &Painter, r: Rect, color: Color) -> usize {
 const READOUT: Rect = Rect(296, 430, 290, 46);
 
 #[test]
+fn both_lfo_shapes_show_large_names_and_distinct_icons_then_expire() {
+    for theme in [Theme::Dark, Theme::White] {
+        for menu in [false, true] {
+            let mut panel = super::panel_tests::Panel::new();
+            panel.app.appearance.theme = theme;
+            if menu {
+                panel.events(&[(13, 0)]);
+            }
+            let (left, top, value_y, size, icon) = if menu {
+                (244, 428, 448, 22, Rect(443, 449, 103, 27))
+            } else {
+                (296, 430, 446, 28, Rect(485, 447, 97, 27))
+            };
+            let text_area = Rect(left, top, 174, 46);
+            let mut expected = Painter::new().unwrap();
+            expected.theme = theme;
+            expected.brightness = panel.app.appearance.brightness;
+            for lfo in 0..2 {
+                let index = panel.app.setting_index(&format!("lfo{}_wave", lfo + 1));
+                let mut icons = Vec::new();
+                // Start at AUX so Sine is also an actual change in readback.
+                panel.app.set(index, 4.);
+                panel.events(&[(11, 0)]);
+                for (shape, name) in ["Sine", "Random", "Saw", "Square", "AUX"]
+                    .iter()
+                    .enumerate()
+                {
+                    panel.app.set(index, shape as f32);
+                    panel.events(&[(11, 0)]);
+                    assert_eq!(panel.app.readout_target(), Some(LiveTarget::Setting(index)));
+                    expected.rect(text_area, BACKGROUND);
+                    expected.text_in(
+                        Face::Condensed,
+                        left,
+                        top,
+                        16,
+                        &format!("LFO {} shape", lfo + 1),
+                        INK2,
+                    );
+                    expected.text_in(Face::Bold, left, value_y, size, name, AMBER);
+                    assert!(
+                        panel.painter.save(text_area) == expected.save(text_area),
+                        "LFO {} {name} large name, menu={menu}",
+                        lfo + 1
+                    );
+                    assert!(
+                        count(&panel.painter, icon, AMBER) > 100,
+                        "visible shape icon"
+                    );
+                    let pixels = panel.painter.save(icon);
+                    assert!(!icons.contains(&pixels), "{name} has its own icon");
+                    icons.push(pixels);
+                    if let Some(captures) = std::env::var_os("GR1_UI_TEST_CAPTURE_DIR") {
+                        panel
+                            .painter
+                            .png(&std::path::PathBuf::from(captures).join(format!(
+                                "lfo{}-shape-{name}-{}-{}.png",
+                                lfo + 1,
+                                theme.name(),
+                                if menu { "menu" } else { "main" }
+                            )))
+                            .unwrap();
+                    }
+                    let last = panel.app.touch.last;
+                    panel.events(&[(11, 0)]);
+                    assert_eq!(
+                        panel.app.touch.last, last,
+                        "steady shape does not retrigger"
+                    );
+                    let (target, at) = last.unwrap();
+                    panel.app.touch.last = Some((target, at - Duration::from_secs(2)));
+                    panel.events(&[]);
+                    assert!(panel.app.readout_target().is_none());
+                    assert_eq!(count(&panel.painter, icon, AMBER), 0);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn both_lfo_destinations_show_at_zero_immediately_and_remain_after_readout_expires() {
+    for theme in [Theme::Dark, Theme::White] {
+        let (mut app, mut p) = app();
+        app.appearance.theme = theme;
+        app.patch_mut().routes = [[0.; 11]; 9];
+        let mut expected = Painter::new().unwrap();
+        expected.theme = theme;
+        expected.brightness = app.appearance.brightness;
+        for lfo in 0..2 {
+            for (dest, name) in catalog::DESTINATIONS.iter().enumerate() {
+                app.patch_mut().lfo_destinations[lfo] = Some((dest + 1) % 11);
+                app.render(&mut p);
+                app.patch_mut().lfo_destinations[lfo] = Some(dest);
+                app.render(&mut p);
+                assert_eq!(app.readout_target(), Some(LiveTarget::Route(lfo, dest)));
+                let label = Rect(560, 285 + lfo as i32 * 88, 232, 18);
+                expected.rect(label, BACKGROUND);
+                expected.text_in(
+                    Face::Condensed,
+                    label.0,
+                    label.1,
+                    14,
+                    &format!("{name} +0%"),
+                    AMBER,
+                );
+                assert_eq!(
+                    p.save(label),
+                    expected.save(label),
+                    "LFO {} {name}",
+                    lfo + 1
+                );
+                let readout_name = Rect(296, 430, 284, 16);
+                expected.rect(readout_name, BACKGROUND);
+                expected.text_in(
+                    Face::Condensed,
+                    296,
+                    430,
+                    16,
+                    &format!("LFO {} > {name}", lfo + 1),
+                    INK2,
+                );
+                assert_eq!(p.save(readout_name), expected.save(readout_name));
+                assert!(count(&p, READOUT, AMBER) > 100, "zero amount is visible");
+                if dest == 7 {
+                    if let Some(captures) = std::env::var_os("GR1_UI_TEST_CAPTURE_DIR") {
+                        p.png(&std::path::PathBuf::from(captures).join(format!(
+                            "lfo{}-dest-zero-{}.png",
+                            lfo + 1,
+                            theme.name()
+                        )))
+                        .unwrap();
+                    }
+                }
+                let (target, at) = app.touch.last.unwrap();
+                app.touch.last = Some((target, at - Duration::from_secs(2)));
+                app.render(&mut p);
+                assert!(app.readout_target().is_none());
+                expected.rect(label, BACKGROUND);
+                expected.text_in(
+                    Face::Condensed,
+                    label.0,
+                    label.1,
+                    14,
+                    &format!("{name} +0%"),
+                    BLUE,
+                );
+                assert_eq!(
+                    p.save(label),
+                    expected.save(label),
+                    "selection stays visible"
+                );
+                assert_eq!(
+                    app.patch().routes,
+                    [[0.; 11]; 9],
+                    "display never changes routing"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn both_lfo_amounts_reopen_and_refresh_the_readout_without_a_dest_press() {
+    for theme in [Theme::Dark, Theme::White] {
+        for lfo in 0..2 {
+            let (mut app, mut p) = app();
+            app.appearance.theme = theme;
+            app.patch_mut().routes = [[0.; 11]; 9];
+            app.patch_mut().lfo_destinations = [Some(7); 2];
+            app.touch = status::Touch::default();
+            app.render(&mut p);
+            assert!(app.readout_target().is_none());
+            // Only Amount changes in the native readback. DEST is unchanged.
+            for (amount, text) in [(-0.25, "-25%"), (0., "+0%"), (0.5, "+50%")] {
+                app.patch_mut().routes[lfo][7] = amount;
+                app.render(&mut p);
+                assert_eq!(app.readout_target(), Some(LiveTarget::Route(lfo, 7)));
+                let mut expected = Painter::new().unwrap();
+                expected.theme = theme;
+                expected.brightness = app.appearance.brightness;
+                let value_area = Rect(296, 446, 130, 28);
+                expected.rect(value_area, BACKGROUND);
+                expected.text_in(Face::Bold, 296, 446, 28, text, AMBER);
+                let amber = rgb(&p, AMBER);
+                let mask = |pixels: Vec<u8>| {
+                    pixels
+                        .chunks_exact(4)
+                        .map(|px| px[..3] == amber)
+                        .collect::<Vec<_>>()
+                };
+                assert!(
+                    mask(p.save(value_area)) == mask(expected.save(value_area)),
+                    "the large readout shows {text}"
+                );
+                assert!(count(&p, READOUT, AMBER) > 100, "large amount is visible");
+                let last = app.touch.last;
+                app.render(&mut p);
+                assert_eq!(
+                    app.touch.last, last,
+                    "unchanged readback does not retrigger"
+                );
+                if amount == 0.5 {
+                    if let Some(captures) = std::env::var_os("GR1_UI_TEST_CAPTURE_DIR") {
+                        p.png(&std::path::PathBuf::from(captures).join(format!(
+                            "lfo{}-amount-{}.png",
+                            lfo + 1,
+                            theme.name()
+                        )))
+                        .unwrap();
+                    }
+                }
+                let (target, at) = app.touch.last.unwrap();
+                app.touch.last = Some((target, at - Duration::from_secs(2)));
+                app.render(&mut p);
+                assert!(app.readout_target().is_none());
+                assert_eq!(count(&p, READOUT, AMBER), 0);
+            }
+            app.patch_mut().routes[lfo][1] = 0.3;
+            app.render(&mut p);
+            assert!(
+                app.readout_target().is_none(),
+                "other routes are not Amount"
+            );
+        }
+    }
+}
+
+#[test]
 fn spotlight_brightens_only_the_spray_range() {
     let (app, p) = app();
     // Demo patch 1: scan 0.42 with spray radius 0.18, loop 0..100.
@@ -151,13 +380,12 @@ fn dark_large_fills_stay_below_the_brightness_rule() {
 #[test]
 fn modulated_readback_changing_every_frame_never_triggers_the_readout() {
     let (mut app, mut p) = app();
-    let sides = app.setting_index("sides");
     let cutoff = app.setting_index("cutoff");
     for frame in 0..30 {
-        // What LFO routes move in the readback: window, filter, spray and
-        // scan values, voice levels and part volumes.
+        // Untracked changing readback: filter, spray, scan and part levels.
+        // Window base controls are operator state; the modulated window is
+        // fetched separately through gr_fetch_grainwin, not those settings.
         let v = (frame as f32 * 0.7).sin();
-        app.set(sides, 50. + 20. * v);
         app.set(cutoff, 4000. + 1000. * v);
         app.patch_mut().params[2] = 20. + 5. * v;
         app.patch_mut().params[4] = v;

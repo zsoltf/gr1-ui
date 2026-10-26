@@ -55,6 +55,11 @@ impl App {
                 routes: std::array::from_fn(|r| {
                     std::array::from_fn(|c| state.mod_matrix[r * 11 + c])
                 }),
+                lfo_destinations: [state.lfo1dest, state.lfo2dest].map(|dest| {
+                    usize::try_from(dest)
+                        .ok()
+                        .filter(|&dest| dest < catalog::DESTINATIONS.len())
+                }),
                 dirty: d.dirty[i],
             };
         }
@@ -364,6 +369,11 @@ impl App {
         painter: &mut Painter,
         events: Vec<device::native::PanelEvent>,
     ) {
+        // Recall can change DEST without a press, including reloading the
+        // same preset. Re-base the readout after the already-synced snapshot.
+        if events.iter().any(|event| matches!(event.action, 10 | 27)) {
+            self.touch = status::Touch::default();
+        }
         // Every event in one poll was emitted under the screen set before it.
         let arrival = self.arrival_screen();
         if !events.is_empty() {

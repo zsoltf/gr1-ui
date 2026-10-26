@@ -666,7 +666,21 @@ impl App {
             INK,
         );
         let shape = self.get(&format!("lfo{}_wave", lfo + 1)) as usize;
-        Self::wave_glyph(p, shape, 606., base as f32 + 10.);
+        Self::wave_glyph(
+            p,
+            shape,
+            Rect(606, base + 5, 16, 10),
+            1,
+            if touched
+                == Some(LiveTarget::Setting(
+                    self.setting_index(&format!("lfo{}_wave", lfo + 1)),
+                ))
+            {
+                AMBER
+            } else {
+                INK2
+            },
+        );
         let rate = self
             .device
             .as_ref()
@@ -686,14 +700,36 @@ impl App {
         );
         let well = Rect(560, base + 24, 232, 40);
         self.draw_lfo_trace(p, lfo, rate, well, (TRACE_RIGHT, LFO_COLUMNS as f32));
-        let routes = self.route_amounts(lfo);
+        // DEST selects the Amount knob's target even when that route is zero.
+        // Keep it first and labelled; the remaining active routes follow it.
+        let selected = self.patch().lfo_destinations[lfo];
+        let mut x = 560;
+        if let Some(dest) = selected {
+            x = p.text_in(
+                Face::Condensed,
+                x,
+                base + 67,
+                14,
+                &format!(
+                    "{} {}",
+                    catalog::DESTINATIONS[dest],
+                    signed_percent(self.patch().routes[lfo][dest])
+                ),
+                if touched == Some(LiveTarget::Route(lfo, dest)) {
+                    AMBER
+                } else {
+                    BLUE
+                },
+            ) + 12;
+        }
+        let routes = self.route_amounts_except(lfo, selected);
         p.fit_in(
             Face::Condensed,
-            560,
+            x,
             base + 67,
             14,
-            232,
-            if routes.is_empty() {
+            (792 - x).max(0),
+            if routes.is_empty() && selected.is_none() {
                 "No route"
             } else {
                 &routes
@@ -872,7 +908,7 @@ impl App {
         self.demo_started.elapsed().as_secs_f32()
     }
 
-    fn wave_glyph(p: &mut Painter, shape: usize, x: f32, y: f32) {
+    pub(super) fn wave_glyph(p: &mut Painter, shape: usize, r: Rect, width: i32, color: Color) {
         let points: Vec<(f32, f32)> = match shape {
             0 => (0..=16)
                 .map(|i| {
@@ -910,8 +946,16 @@ impl App {
                 (16., 0.),
             ],
         };
-        let points: Vec<_> = points.into_iter().map(|(a, b)| (x + a, y + b)).collect();
-        p.stroke(&points, 1, INK2);
+        let points: Vec<_> = points
+            .into_iter()
+            .map(|(a, b)| {
+                (
+                    r.0 as f32 + a * r.2 as f32 / 16.,
+                    r.1 as f32 + (b + 5.) * r.3 as f32 / 10.,
+                )
+            })
+            .collect();
+        p.stroke(&points, width, color);
     }
 
     fn cv_block(&mut self, p: &mut Painter, cv: usize) {
@@ -950,10 +994,14 @@ impl App {
 
     /// A source's routes in the focused patch, as "Spray +40%   Tilt +15%".
     pub(super) fn route_amounts(&self, source: usize) -> String {
+        self.route_amounts_except(source, None)
+    }
+
+    fn route_amounts_except(&self, source: usize, selected: Option<usize>) -> String {
         self.patch().routes[source]
             .iter()
             .enumerate()
-            .filter(|(_, v)| v.abs() > 0.001)
+            .filter(|(i, v)| Some(*i) != selected && v.abs() > 0.001)
             .map(|(i, v)| format!("{} {}", catalog::DESTINATIONS[i], signed_percent(*v)))
             .collect::<Vec<_>>()
             .join("   ")

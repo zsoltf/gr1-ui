@@ -62,6 +62,8 @@ struct Patch {
     params: [f32; 8],
     values: HashMap<String, f32>,
     routes: [[f32; 11]; 9],
+    /// The engine's current DEST selection, independent of route amounts.
+    lfo_destinations: [Option<usize>; 2],
     dirty: bool,
 }
 impl Patch {
@@ -92,6 +94,7 @@ impl Patch {
             },
             values: HashMap::new(),
             routes,
+            lfo_destinations: [Some(1), Some(7)],
             dirty: false,
         }
     }

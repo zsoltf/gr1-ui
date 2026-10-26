@@ -20,6 +20,18 @@ const PANEL_NAMES: [&str; 8] = [
 /// and encoder handlers, MIDI CC and the host's own writes; modulation writes
 /// per-voice tables instead. The engine names no control for these two.
 const BASE_TARGETS: [LiveTarget; 2] = [LiveTarget::Param(0, false), LiveTarget::Param(1, false)];
+/// gr_patch2ipc copies these base controls, not the modulated GrainWin or
+/// Matrix outputs. The panel changes them without a control-name event.
+const BASE_SETTINGS: [&str; 7] = [
+    "sides",
+    "tilt",
+    "curve",
+    "lfo1_rate",
+    "lfo2_rate",
+    "lfo1_wave",
+    "lfo2_wave",
+];
+const BASE_COUNT: usize = BASE_TARGETS.len() + BASE_SETTINGS.len();
 /// The live strip in a menu's status bar .
 pub(super) const STRIP: Rect = Rect(244, 430, 300, 44);
 
@@ -28,7 +40,9 @@ pub(super) const STRIP: Rect = Rect(244, 430, 300, 44);
 #[derive(Default)]
 pub(super) struct Touch {
     key: Option<(usize, usize, String, String)>,
-    values: [f32; 2],
+    values: [f32; BASE_COUNT],
+    lfo_destinations: [Option<usize>; 2],
+    lfo_amounts: [f32; 2],
     pub last: Option<(LiveTarget, Instant)>,
 }
 
@@ -121,17 +135,27 @@ impl App {
         self.touch.last = Some((target, Instant::now()));
     }
 
-    /// Follow the base Position and Grain Size readback. A preset, part,
-    /// performance or sample change re-bases without reporting a touch, and so
-    /// does a recall that changes both at once.
+    /// Follow unnamed base controls, DEST and the selected LFO amounts.
+    /// A preset, part, performance or sample change re-bases without a touch.
+    /// Native recall events also reset tracking, even for the same preset.
     pub(super) fn track_touch(&mut self) {
         let (slot, patch) = (self.parts[self.part], self.patch());
         let same = self.touch.key.as_ref().is_some_and(|(s, p, name, sample)| {
             (*s, *p) == (self.snapshot, slot) && *name == patch.name && *sample == patch.sample
         });
-        let values = BASE_TARGETS.map(|t| self.target_value(t));
+        let targets: [LiveTarget; BASE_COUNT] = std::array::from_fn(|i| {
+            if i < BASE_TARGETS.len() {
+                BASE_TARGETS[i]
+            } else {
+                LiveTarget::Setting(self.setting_index(BASE_SETTINGS[i - BASE_TARGETS.len()]))
+            }
+        });
+        let values = targets.map(|t| self.target_value(t));
+        let destinations = patch.lfo_destinations;
+        let amounts =
+            std::array::from_fn(|lfo| destinations[lfo].map_or(0., |dest| patch.routes[lfo][dest]));
         if same {
-            let changed: Vec<LiveTarget> = BASE_TARGETS
+            let changed: Vec<LiveTarget> = targets
                 .iter()
                 .zip(values.iter().zip(&self.touch.values))
                 .filter(|(_, (a, b))| differs(**a, **b))
@@ -139,6 +163,16 @@ impl App {
                 .collect();
             if let [target] = changed[..] {
                 self.touched(target);
+            }
+            for (lfo, destination) in destinations.iter().copied().enumerate() {
+                if let Some(dest) = destination {
+                    if self.touch.lfo_destinations[lfo].is_some()
+                        && (self.touch.lfo_destinations[lfo] != destination
+                            || differs(self.touch.lfo_amounts[lfo], amounts[lfo]))
+                    {
+                        self.touched(LiveTarget::Route(lfo, dest));
+                    }
+                }
             }
         } else {
             self.touch.last = None;
@@ -150,6 +184,8 @@ impl App {
             ));
         }
         self.touch.values = values;
+        self.touch.lfo_destinations = destinations;
+        self.touch.lfo_amounts = amounts;
     }
 
     /// The control the readout and the waveform mark answer: an edit in
@@ -179,7 +215,16 @@ impl App {
                 self.param_value(i, value, alt),
             ),
             LiveTarget::Setting(i) => (
-                self.catalog[i].name.clone(),
+                match self.catalog[i].id.as_str() {
+                    "sides" => "Window sides".into(),
+                    "tilt" => "Window tilt".into(),
+                    "curve" => "Window curve".into(),
+                    "lfo1_rate" => "LFO 1 frequency".into(),
+                    "lfo2_rate" => "LFO 2 frequency".into(),
+                    "lfo1_wave" => "LFO 1 shape".into(),
+                    "lfo2_wave" => "LFO 2 shape".into(),
+                    _ => self.catalog[i].name.clone(),
+                },
                 Self::val_text(&self.catalog[i], value),
             ),
             LiveTarget::Route(r, c) => (
@@ -188,6 +233,40 @@ impl App {
             ),
             LiveTarget::PartVolume(i) => (format!("Part {} level", i + 1), format!("{value:.0}%")),
         }
+    }
+
+    fn readout_shape(&self, target: LiveTarget) -> Option<usize> {
+        match target {
+            LiveTarget::Setting(i)
+                if matches!(self.catalog[i].id.as_str(), "lfo1_wave" | "lfo2_wave") =>
+            {
+                Some(self.target_value(target) as usize)
+            }
+            _ => None,
+        }
+    }
+
+    /// The selected shape's icon, not a synthesized replacement for its live trace.
+    fn shape_readout(&self, p: &mut Painter, target: LiveTarget, r: Rect, size: u16) {
+        let shape = self.readout_shape(target).unwrap();
+        let (_, value) = self.readout_text(target);
+        let glyph_width = (r.2 / 3).clamp(40, 120);
+        p.fit_in(
+            Face::Bold,
+            r.0,
+            r.1,
+            size,
+            r.2 - glyph_width - 16,
+            &value,
+            AMBER,
+        );
+        Self::wave_glyph(
+            p,
+            shape,
+            Rect(r.0 + r.2 - glyph_width, r.1 + 2, glyph_width, 24),
+            2,
+            AMBER,
+        );
     }
 
     /// The knob position as a fraction of its travel.
@@ -357,12 +436,17 @@ impl App {
         if let (Some(target), false) = (touched, menu) {
             let (name, value) = self.readout_text(target);
             p.fit_in(Face::Condensed, 296, 430, 16, 284, &name, INK2);
-            let end = p.fit_in(Face::Bold, 296, 446, 28, 284, &value, AMBER);
-            let bar = 430.max(end + 14);
-            if 580 - bar >= 40 {
-                p.rect(Rect(bar, 462, 580 - bar, 4), OUTLINE);
-                let filled = ((580 - bar) as f32 * self.readout_fraction(target)).round() as i32;
-                p.rect(Rect(bar, 462, filled, 4), AMBER);
+            if self.readout_shape(target).is_some() {
+                self.shape_readout(p, target, Rect(296, 446, 284, 28), 28);
+            } else {
+                let end = p.fit_in(Face::Bold, 296, 446, 28, 284, &value, AMBER);
+                let bar = 430.max(end + 14);
+                if 580 - bar >= 40 {
+                    p.rect(Rect(bar, 462, 580 - bar, 4), OUTLINE);
+                    let filled =
+                        ((580 - bar) as f32 * self.readout_fraction(target)).round() as i32;
+                    p.rect(Rect(bar, 462, filled, 4), AMBER);
+                }
             }
         }
         // Chips, right to left. Activity marks wait for phui_get_activity.
@@ -397,14 +481,21 @@ impl App {
             let mut left = STRIP.0 + STRIP.2 + 12;
             let mut width = right - left - 4;
             let shows = touched.is_some() || self.toast_visible();
-            let middle = shows && width < 140;
+            let shape = touched
+                .and_then(|target| self.readout_shape(target))
+                .is_some();
+            let middle = shows && width < if shape { 200 } else { 140 };
             if middle {
                 (left, width) = (STRIP.0, STRIP.2);
             }
             if let Some(target) = touched {
                 let (name, value) = self.readout_text(target);
                 p.fit_in(Face::Condensed, left, 428, 16, width, &name, INK2);
-                p.fit_in(Face::Bold, left, 448, 22, width, &value, AMBER);
+                if shape {
+                    self.shape_readout(p, target, Rect(left, 448, width, 26), 22);
+                } else {
+                    p.fit_in(Face::Bold, left, 448, 22, width, &value, AMBER);
+                }
             } else if self.toast_visible() {
                 for (i, line) in super::components::wrap(p, &self.toast, width)
                     .iter()
